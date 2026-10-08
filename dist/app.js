@@ -36,13 +36,14 @@ function hud(){const left=Math.max(0,Math.ceil(C.timeLimit-game.time));$('time')
  for(let i=0;i<7;i++){const el=$('g'+i);const value=i<5?Math.min(1,game.m.counts[i]/C.targets[i]):i===5?Math.min(1,game.m.snacks/3):game.water/100;el.querySelector('i').style.width=value*100+'%';el.classList.toggle('warn',i===5&&game.m.K||i===6&&game.water<25);}
  if(stage==='running'){if(!wasBalanced&&game.m.balanced)setHint('균형 회복! 바퀴가 튼튼해졌어요!');wasBalanced=game.m.balanced;setHint(advice(game.m,game.water));}
 }
-function beginEnding(replay=false){endingReplay=replay;overlay.hidden=true;$('ending').hidden=false;$('endingImage').src=assets.endings[0].src;$('endingImage').alt='분홍 조리복을 입고 정면을 향해 질주하는 사이클리스트';$('endingImage').style.opacity='1';$('endingText').textContent='전력 질주!';setStage('ending1');}
+function beginEnding(replay=false){endingReplay=replay;overlay.hidden=true;$('ending').hidden=false;$('endingImage').src=assets.endings[0].src;$('endingImage').alt='분홍 조리복을 입고 정면을 향해 질주하는 사이클리스트';$('endingImage').style.opacity='1';setStage('ending1');}
 function result(){setStage(game.finishSnapshot.success?'success':'failure');$('ending').hidden=true;overlay.hidden=false;const s=game.finishSnapshot;let feedback;
  if(s.success)feedback=s.averageBalance>=.6&&s.averageImbalance<.15?'여러 식품을 골고루! 튼튼한 바퀴로 잘 달렸어요.':s.averageDry>.2?'끝까지 잘 달렸어요! 다음에는 물도 꾸준히 챙겨요.':'완주 성공! 다음에는 더 다양한 식품을 골라 봐요.';
  else if(s.averageDry>.2)feedback='이번에는 물을 더 꾸준히 챙겨 봐요!';else if(s.averageSnack>.25)feedback='이번에는 단 간식을 잠깐 쉬어 봐요!';else if(s.overfedHits>=2)feedback='과영양 표시가 난 음식은 잠깐 피해 봐요!';else if(s.spoiledHits>=3)feedback='이번에는 상한 음식을 더 조심해 봐요!';else {const ratio=s.totals.slice(0,5).map((v,i)=>v/C.targets[i]);feedback=`이번에는 ${GROUPS[ratio.indexOf(Math.min(...ratio))].short}를 더 골라 봐요!`;}
  screen(`${s.hasHighSpeedEnding?'<span class="badge">⚡ 고속 완주!</span>':'<span class="kicker">RIDE COMPLETE</span>'}<h2>${s.success?'튼튼바퀴, 골인!':'아쉽게 시간 초과!'}</h2><p>${feedback}</p><div class="result-stats"><div><small>${s.success?'완주 시간':'주행 시간'}</small><strong>${s.time.toFixed(1)}<small> 초</small></strong></div><div><small>${s.success?'골인 속도':'마지막 속도'}</small><strong>${s.finishSpeedKmh}<small> km/h</small></strong></div><div><small>도달 거리</small><strong>${Math.round(s.distance)}<small> / ${C.finishDistance.toLocaleString()}</small></strong></div></div><div class="result-foods">${GROUPS.map((g,i)=>`<div>${icon(g.icon)}<span>${i===5?'단 간식':g.short}</span><b>${s.totals[i]}</b></div>`).join('')}</div><button class="primary" id="again">다시 달리기</button>${s.hasHighSpeedEnding?'<button class="minor" id="replay">엔딩 다시보기</button>':''}<button class="minor" id="home">시작 화면</button><p class="footnote">한 판 전체의 획득 기록이에요. 실제 하루 권장량이 아니에요.</p>`);$('again').onclick=startRun;$('home').onclick=()=>{game.reset();showStart();};if($('replay'))$('replay').onclick=()=>beginEnding(true);
 }
-$('skip').onclick=result;
+$('ending').onclick=()=>{if(stage.startsWith('ending'))result();};
+$('ending').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();$('ending').onclick();}});
 function tick(dt){
  if(stage==='paused'||stage==='start'||stage==='success'||stage==='failure')return;
  if(stage==='countdown'){const old=Math.floor(stageTime);stageTime+=dt;if(stageTime>=3){setStage('running');overlay.hidden=true;beep(880,.2);}else if(Math.floor(stageTime)!==old){card.querySelector('.countdown').textContent=3-Math.floor(stageTime);beep(440,.08);}return;}
@@ -50,7 +51,7 @@ function tick(dt){
  stageTime+=dt;
  if(stage==='finish'&&stageTime>=C.finishAnimation){if(game.finishSnapshot.hasHighSpeedEnding)beginEnding();else result();}
  else if(stage==='ending1'&&stageTime>=C.endings[0].duration){setStage('endingTransition');$('endingImage').style.opacity='0';}
- else if(stage==='endingTransition'&&stageTime>=C.endingTransition){$('endingImage').src=assets.endings[1].src;$('endingImage').alt='두 팔을 들고 골인 테이프를 통과하는 분홍 조리복 사이클리스트';$('endingImage').style.opacity='1';$('endingText').textContent='멋지게 골인!';setStage('ending2');}
+ else if(stage==='endingTransition'&&stageTime>=C.endingTransition){$('endingImage').src=assets.endings[1].src;$('endingImage').alt='두 팔을 들고 골인 테이프를 통과하는 분홍 조리복 사이클리스트';$('endingImage').style.opacity='1';setStage('ending2');}
  else if(stage==='ending2'&&stageTime>=C.endings[1].duration)result();
 }
 function loadImage(src){return new Promise((resolve,reject)=>{const im=new Image();im.src=src;im.onload=async()=>{try{await im.decode();resolve(im);}catch(e){reject(e);}};im.onerror=()=>reject(new Error(src));});}

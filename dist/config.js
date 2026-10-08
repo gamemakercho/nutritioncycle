@@ -1,6 +1,6 @@
 export const CONFIG={
   width:1280,height:720,timeLimit:60,finishDistance:1100,baseSpeed:20,maxInternalSpeed:30,
-  minMultiplier:.4,maxMultiplier:1.5,baseDisplaySpeed:100,speedResponse:.12,
+  minMultiplier:.4,maxMultiplier:1.5,baseDisplaySpeed:100,speedResponse:.12,startSpeedKmh:15,startupSeconds:6,startupAccelerationKmh:8,
   moveSpeed:680,moveResponse:.065,spawnInterval:1.2,recordWindow:20,
   targets:[3,2,3,2,2],imbalanceAllowance:.12,imbalanceRange:.5,snackFree:2,
   waterStart:75,waterMax:100,waterDrain:3,waterRecovery:30,waterLow:25,
