@@ -14,16 +14,16 @@ body{display:block}#app-shell{--shell-w:100vw;--shell-h:100dvh;width:100vw;heigh
 <div id="loadError" hidden></div>
 </main><div id="viewNotice" role="status" hidden></div></div><script type="module">const CONFIG={
   width:1280,height:720,timeLimit:60,finishDistance:1100,baseSpeed:20,maxInternalSpeed:30,
-  minMultiplier:.4,maxMultiplier:1.5,maxDisplaySpeed:100,speedResponse:.12,
+  minMultiplier:.4,maxMultiplier:1.5,baseDisplaySpeed:100,speedResponse:.12,
   moveSpeed:680,moveResponse:.065,spawnInterval:1.2,recordWindow:20,
   targets:[3,2,3,2,2],imbalanceAllowance:.12,imbalanceRange:.5,snackFree:2,
   waterStart:75,waterMax:100,waterDrain:3,waterRecovery:30,waterLow:25,
   spoiledMultiplier:.65,spoiledDuration:3,fastEnter:70,fastExit:65,endingThreshold:70,
-  poseTransition:.2,pixelDistanceScale:5,itemBaseScrollSpeed:150,itemStartX:1340,itemRadius:16,
+  poseTransition:.2,pixelDistanceScale:5,itemBaseScrollSpeed:150,itemAcceleration:.09,itemStartX:1340,itemRadius:16,
   overfeed:{threshold:5,releaseCount:2,retention:.85,graceSeconds:6},
   scenery:{cloud:.65,mountain:2,tree:12,rail:23,road:38,foreground:54},
   turbo:{threshold:70,response:.18,boost:3.2,smear:22},
-  space:{threshold:100,holdSeconds:1,fadeTime:.28,scrollScale:160,stars:220,maxTrail:450},
+  space:{threshold:100,holdSeconds:4,gainPerSecond:1,mistakeSpeed:80,recoverySeconds:3,fadeTime:.28,scrollScale:160,stars:220,maxTrail:450},
   portrait:{width:720,bikeScale:.8,itemSize:72,itemLabelSize:22,roadTopRatio:.34,roadBottomRatio:.96},
   itemSize:66,itemLabelSize:17,foodOutline:6,itemStagger:18,itemSeparation:128,itemGapX:210,itemGapY:128,
   bike:{x:280,minY:245,maxY:535,startY:415,groundDY:118,pickup:{x:354,dy:118,rx:38,ry:23},
@@ -293,24 +293,27 @@ function metrics(records,water,time,overfeeding={}){
 }
 function nutritionMultiplier(m){return .75+.75*m.F-.55*m.I;}
 function desiredSpeed(m,spoiled=false){let M=clamp(Math.max(nutritionMultiplier(m),m.protectedNutrition||0)-.25*m.H-.2*m.K,C.minMultiplier,C.maxMultiplier);if(spoiled)M=Math.max(C.minMultiplier,M*C.spoiledMultiplier);return C.baseSpeed*M;}
-const displayedSpeed=speed=>Math.round(clamp(speed/C.maxInternalSpeed*C.maxDisplaySpeed,0,C.maxDisplaySpeed));
+const displayedSpeed=speed=>Math.round(Math.max(0,speed)/C.maxInternalSpeed*C.baseDisplaySpeed);
 const poseFor=(fast,kmh)=>fast?kmh>C.fastExit:kmh>=C.fastEnter;
-const itemScrollSpeed=speed=>speed<=0?0:C.itemBaseScrollSpeed+clamp(speed,0,C.maxInternalSpeed)*C.pixelDistanceScale;
+const internalSpeed=kmh=>kmh/C.baseDisplaySpeed*C.maxInternalSpeed;
+const itemScrollSpeed=speed=>speed<=0?0:C.itemBaseScrollSpeed+speed*C.pixelDistanceScale+C.itemAcceleration*Math.max(0,speed/C.maxInternalSpeed*C.baseDisplaySpeed-50)**2;
 const itemsOverlap=(a,b)=>Math.abs(a.x-b.x)<C.itemGapX-.001&&Math.abs(a.y-b.y)<C.itemGapY-.001;
 function leastGroup(m){if(m.F>=1&&m.I>0)return m.proportions.map((p,i)=>p-m.weights[i]).indexOf(Math.min(...m.proportions.map((p,i)=>p-m.weights[i])));const ratios=m.counts.map((c,i)=>c/C.targets[i]);return ratios.indexOf(Math.min(...ratios));}
 function advice(m,water){if(water<C.waterLow)return '물이 부족해요!';if(m.K)return '단 간식은 잠깐 쉬어 가요!';if(m.N<3)return '다양한 식품을 모아 봐!';if(m.F>=1&&m.I===0)return '균형 좋아요! 물도 챙겨요!';return GROUPS[leastGroup(m)].hint;}
 class Game{
  constructor(seed=12345){this.seed=seed;this.reset();}
- reset(){this.time=0;this.distance=0;this.water=C.waterStart;this.records=[];this.totals=Array(7).fill(0);this.spoiledHits=0;this.overfedHits=0;this.overfeeding={};this.topSpeedHeldSec=0;this.spoiledUntil=0;this.speed=15;this.displayedSpeedKmh=50;this.fast=false;this.y=C.bike.startY;this.targetY=this.y;this.items=[];this.nextSpawn=0;this.nextId=1;this.lastOffered=Array(5).fill(-8);this.lastWater=-6;this.offerCount=0;this.balanceIntegral=0;this.imbalanceIntegral=0;this.dryIntegral=0;this.snackIntegral=0;this.finishSnapshot=null;this.events=[];this.m=metrics([],this.water,0);}
+ reset(){this.time=0;this.distance=0;this.water=C.waterStart;this.records=[];this.totals=Array(7).fill(0);this.spoiledHits=0;this.overfedHits=0;this.overfeeding={};this.topSpeedHeldSec=0;this.spaceActive=false;this.spaceElapsed=0;this.spaceRecoveryUntil=0;this.spoiledUntil=0;this.speed=15;this.displayedSpeedKmh=50;this.fast=false;this.y=C.bike.startY;this.targetY=this.y;this.items=[];this.nextSpawn=0;this.nextId=1;this.lastOffered=Array(5).fill(-8);this.lastWater=-6;this.offerCount=0;this.balanceIntegral=0;this.imbalanceIntegral=0;this.dryIntegral=0;this.snackIntegral=0;this.finishSnapshot=null;this.events=[];this.m=metrics([],this.water,0);}
  random(){this.seed=(1664525*this.seed+1013904223)>>>0;return this.seed/4294967296;}
  syncMetrics(){let m=metrics(this.records,this.water,this.time,this.overfeeding);for(const [id,entry] of Object.entries(this.overfeeding)){if(entry.active&&(m.foodCounts[id]||0)<=C.overfeed.releaseCount){entry.active=false;entry.graceUntil=this.time+C.overfeed.graceSeconds;this.events.push({type:'overfeedEnd',food:FOODS.find(f=>f.id===id)});}if(!entry.active&&this.time>=entry.graceUntil)delete this.overfeeding[id];}this.m=metrics(this.records,this.water,this.time,this.overfeeding);return this.m;}
  take(food){
-  if(this.finishSnapshot)return;const before=this.syncMetrics(),red=food.kind==='food'&&before.overfedFoods.includes(food.id);let eventFood=food;
+  if(this.finishSnapshot)return;const before=this.syncMetrics(),red=food.kind==='food'&&before.overfedFoods.includes(food.id),unsafe=red||food.kind==='spoiled'||food.kind==='snack',spaceMistake=unsafe&&(this.spaceActive||this.time<this.spaceRecoveryUntil);let eventFood=food;
   if(this.totals[food.group]>=0)this.totals[food.group]++;
   if(food.kind==='water')this.water=clamp(this.water+C.waterRecovery,0,100);
-  else if(food.kind==='spoiled'||red){if(red){this.overfedHits++;eventFood={...food,kind:'overfed'};}else this.spoiledHits++;this.spoiledUntil=this.time+C.spoiledDuration;this.syncMetrics();this.speed=desiredSpeed(this.m,true);this.displayedSpeedKmh=displayedSpeed(this.speed);this.topSpeedHeldSec=0;}
+  else if(food.kind==='spoiled'||red){if(red){this.overfedHits++;eventFood={...food,kind:'overfed'};}else this.spoiledHits++;this.spoiledUntil=this.time+C.spoiledDuration;this.syncMetrics();if(!spaceMistake){this.speed=desiredSpeed(this.m,true);this.displayedSpeedKmh=displayedSpeed(this.speed);}this.topSpeedHeldSec=0;}
   else {this.records.push({kind:food.kind,group:food.group,foodId:food.id,time:this.time});const after=metrics(this.records,this.water,this.time,this.overfeeding);if(food.kind==='food'&&(after.foodCounts[food.id]||0)>=C.overfeed.threshold&&!this.overfeeding[food.id]?.active){this.overfeeding[food.id]={active:true,protectedNutrition:clamp(nutritionMultiplier(before)*C.overfeed.retention,C.minMultiplier,C.maxMultiplier),graceUntil:0};this.events.push({type:'overfeedStart',food});}}
-  this.syncMetrics();this.events.push({type:'take',food:eventFood,y:this.y+C.bike.pickup.dy});
+  this.syncMetrics();
+  if(spaceMistake){this.spaceActive=false;this.spaceElapsed=0;this.topSpeedHeldSec=0;this.spaceRecoveryUntil=this.time+C.space.recoverySeconds;this.spoiledUntil=this.spaceRecoveryUntil;this.speed=internalSpeed(C.space.mistakeSpeed);this.displayedSpeedKmh=C.space.mistakeSpeed;this.events.push({type:'spaceBreak'});}
+  this.events.push({type:'take',food:eventFood,y:this.y+C.bike.pickup.dy});
  }
  foodFor(group,preferSafe=false){let list=FOODS.filter(f=>f.group===group);if(preferSafe){const safe=list.filter(f=>!this.m.overfedFoods.includes(f.id));if(safe.length)list=safe;else list=FOODS.filter(f=>f.kind==='food'&&!this.m.overfedFoods.includes(f.id));}return list[Math.floor(this.random()*list.length)];} placeItem(food,x,wantedY){
   const min=C.bike.minY+C.bike.groundDY+10,max=C.bike.maxY+C.bike.groundDY-12;
@@ -346,8 +349,13 @@ class Game{
   let remain=dt;while(remain>1e-9&&!this.finishSnapshot){const d=Math.min(remain,1/120);this.substep(d);remain-=d;}
  }
  substep(dt){
-  this.syncMetrics();const target=desiredSpeed(this.m,this.time<this.spoiledUntil);
-  this.speed+=(target-this.speed)*(1-Math.exp(-dt/C.speedResponse));this.displayedSpeedKmh=displayedSpeed(this.speed);this.fast=poseFor(this.fast,this.displayedSpeedKmh);
+  this.syncMetrics();
+  // Space rewards sustained maximum speed; water shortage still ends the boost.
+  if(this.spaceActive&&this.m.H>0){this.spaceActive=false;this.spaceElapsed=0;this.topSpeedHeldSec=0;}
+  const wasSpace=this.spaceActive,recovering=this.time<this.spaceRecoveryUntil;
+  const target=recovering?internalSpeed(C.space.mistakeSpeed):desiredSpeed(this.m,this.time<this.spoiledUntil);
+  if(this.spaceActive)this.speed=internalSpeed(C.space.threshold+Math.floor(this.spaceElapsed+1e-9)*C.space.gainPerSecond);
+  else this.speed+=(target-this.speed)*(1-Math.exp(-dt/C.speedResponse));this.displayedSpeedKmh=displayedSpeed(this.speed);this.fast=poseFor(this.fast,this.displayedSpeedKmh);
   this.targetY=clamp(this.targetY,C.bike.minY,C.bike.maxY);const wanted=(this.targetY-this.y)*(1-Math.exp(-dt/C.moveResponse));this.y+=clamp(wanted,-C.moveSpeed*dt,C.moveSpeed*dt);
   const remaining=C.finishDistance-this.distance;const toFinish=remaining/this.speed;const available=C.timeLimit-this.time;const actual=Math.min(dt,toFinish,available);
   this.time+=actual;this.distance+=this.speed*actual;this.water=clamp(this.water-C.waterDrain*actual,0,100);
@@ -359,11 +367,17 @@ class Game{
    if(!item.taken&&vertical<ry&&old>=pickup.x-rx&&item.x<=pickup.x+rx){const dx=Math.max(0,Math.abs(item.x-pickup.x)-C.itemRadius);if((dx/pickup.rx)**2+(Math.max(0,vertical-C.itemRadius)/pickup.ry)**2<=1){item.taken=true;this.take(item.food);}}
   }this.items=this.items.filter(i=>!i.taken&&i.x>-80);
   this.records=this.records.filter(r=>this.time-r.time<C.recordWindow);
-  this.syncMetrics();this.topSpeedHeldSec=this.displayedSpeedKmh>=C.space.threshold?this.topSpeedHeldSec+actual:0;
+  this.syncMetrics();
+  if(this.spaceActive&&wasSpace)this.spaceElapsed+=actual;
+  else if(!this.spaceActive){
+   this.topSpeedHeldSec=this.displayedSpeedKmh>=C.space.threshold?this.topSpeedHeldSec+actual:0;
+   if(this.topSpeedHeldSec+1e-9>=C.space.holdSeconds){this.spaceActive=true;this.spaceElapsed=Math.max(0,this.topSpeedHeldSec-C.space.holdSeconds);this.topSpeedHeldSec=C.space.holdSeconds;this.events.push({type:'spaceStart'});}
+  }
+  if(this.spaceActive){this.speed=internalSpeed(C.space.threshold+Math.floor(this.spaceElapsed+1e-9)*C.space.gainPerSecond);this.displayedSpeedKmh=displayedSpeed(this.speed);}
   if(this.distance>=C.finishDistance-1e-8&&this.time<=C.timeLimit+1e-8)this.finish(true);
   else if(this.time>=C.timeLimit-1e-8)this.finish(false);
  }
- finish(success){if(this.finishSnapshot)return;const finishSpeedKmh=this.displayedSpeedKmh;this.finishSnapshot=Object.freeze({success,time:this.time,distance:Math.min(this.distance,C.finishDistance),finishSpeedKmh,totals:[...this.totals],spoiledHits:this.spoiledHits,overfedHits:this.overfedHits,averageBalance:this.balanceIntegral/Math.max(this.time,.001),averageImbalance:this.imbalanceIntegral/Math.max(this.time,.001),averageDry:this.dryIntegral/Math.max(this.time,.001),averageSnack:this.snackIntegral/Math.max(this.time,.001),hasHighSpeedEnding:success&&finishSpeedKmh>=C.endingThreshold});this.speed=0;this.displayedSpeedKmh=0;this.fast=false;this.topSpeedHeldSec=0;}
+ finish(success){if(this.finishSnapshot)return;const finishSpeedKmh=this.displayedSpeedKmh;this.finishSnapshot=Object.freeze({success,time:this.time,distance:Math.min(this.distance,C.finishDistance),finishSpeedKmh,totals:[...this.totals],spoiledHits:this.spoiledHits,overfedHits:this.overfedHits,averageBalance:this.balanceIntegral/Math.max(this.time,.001),averageImbalance:this.imbalanceIntegral/Math.max(this.time,.001),averageDry:this.dryIntegral/Math.max(this.time,.001),averageSnack:this.snackIntegral/Math.max(this.time,.001),hasHighSpeedEnding:success&&finishSpeedKmh>=C.endingThreshold});this.speed=0;this.displayedSpeedKmh=0;this.fast=false;this.topSpeedHeldSec=0;this.spaceActive=false;this.spaceElapsed=0;this.spaceRecoveryUntil=0;}
 }
 
 
@@ -458,7 +472,7 @@ class Renderer{
  makeSpaceBackdrop(){const cv=document.createElement('canvas');cv.width=640;cv.height=360;const c=cv.getContext('2d');const colors=['#246aa0','#874679','#925b42','#29527f'];for(let i=0;i<18;i++){const x=hash(i+581)*640,y=hash(i+173)*360,r=35+hash(i+340)*100;c.save();c.translate(x,y);c.scale(1.8,.55);const glow=c.createRadialGradient(0,0,0,0,0,r);glow.addColorStop(0,colors[i%4]+'44');glow.addColorStop(.45,colors[i%4]+'20');glow.addColorStop(1,colors[i%4]+'00');c.fillStyle=glow;c.fillRect(-r,-r,r*2,r*2);c.restore();}const edge=c.createLinearGradient(0,0,640,0);edge.addColorStop(0,'#00000000');edge.addColorStop(.15,'#000000ff');edge.addColorStop(.85,'#000000ff');edge.addColorStop(1,'#00000000');c.globalCompositeOperation='destination-in';c.fillStyle=edge;c.fillRect(0,0,640,360);return cv;}
  paintSpace(g){if(this.space<=0)return;const c=this.ctx,v=this.view,w=v.width,h=v.height,scale=w/C.width,travel=this.spaceDistance*scale,palette=['#81d3ff','#68a2f7','#f38bd6','#f7aa70','#bdeaff'];c.save();c.globalAlpha=this.space;c.imageSmoothingEnabled=true;const base=c.createLinearGradient(0,0,0,h);base.addColorStop(0,'#020813');base.addColorStop(.5,'#0a1b2b');base.addColorStop(1,'#020916');c.fillStyle=base;c.fillRect(0,0,w,h);const shift=(travel*.025)%w;c.drawImage(this.spaceBackdrop,-shift,0,w,h);c.drawImage(this.spaceBackdrop,w-shift,0,w,h);
   // Depth layers move right-to-left; bright heads leave long coloured tails.
-  const intensity=.6+.4*clamp((g.displayedSpeedKmh-90)/10,0,1);
+  const intensity=1+Math.max(0,g.displayedSpeedKmh-100)*.015;
   for(let i=0;i<120;i++){const x=((hash(i+521)*w-travel*.025)%w+w)%w,y=hash(i+1732)*h;c.fillStyle='#c3e3f977';c.fillRect(x,y,Math.max(.6,scale),Math.max(.6,scale));}for(let i=0;i<C.space.stars;i++){const depth=.06+Math.pow(hash(i+103),2)*1.3,y=hash(i+1908)*h,x=((hash(i+19)*w-travel*depth)%(w*1.4)+w*1.4)%(w*1.4)-w*.2,len=(3+Math.pow(depth,1.9)*C.space.maxTrail)*scale*intensity,thickness=(.45+depth*1.25)*scale,color=palette[i%5],dy=(y-h*.5)/h*len*.025;const trail=c.createLinearGradient(x,y,x+len,y+dy);trail.addColorStop(0,color+'bb');trail.addColorStop(.18,color+'66');trail.addColorStop(1,color+'00');c.strokeStyle=trail;c.lineWidth=thickness*3;c.beginPath();c.moveTo(x,y);c.lineTo(x+len,y+dy);c.stroke();c.strokeStyle=trail;c.lineWidth=thickness;c.stroke();if(depth>.8){c.fillStyle='#edf9ff';c.fillRect(x-1,y-1,Math.max(1,thickness*1.4),Math.max(1,thickness));}else{c.fillStyle=color+'99';c.fillRect(x,y,Math.max(1,depth*2),1);}}
   // A faint luminous surface keeps the bicycle's ground contact readable.
   const road=roadProjection(v),floor=c.createLinearGradient(0,road.top,0,road.bottom);floor.addColorStop(0,'#06152b00');floor.addColorStop(.8,'#09203a55');floor.addColorStop(1,'#12355455');c.fillStyle=floor;c.fillRect(0,road.top,w,road.bottom-road.top);c.strokeStyle='#68cdf32b';c.lineWidth=1;c.beginPath();c.moveTo(0,road.bottom);c.lineTo(w,road.bottom);c.stroke();c.restore();
@@ -505,8 +519,8 @@ class Renderer{
   this.poly(Array.from({length:32},(_,i)=>[frontX+Math.cos(i*Math.PI/16)*38,ground+Math.sin(i*Math.PI/16)*17]),null,'#d4f9dc99',2);
   this.bikeSprite.draw(c,geometry.originX+offset,g.y+geometry.originY,C.bike.pack.scale,{...g.m,water:g.water});
   for(let n=0;n<5;n++){const p=(g.distance*.9+n*1.3)%5;this.rect(rearX-63-p*17,ground-4-p*3,12-p,6-p/2,'#eae4d6bb');}
- } speedometer(kmh){const c=this.ctx,{x,y,r}=C.speedometer;this.circle(x,y,r+4,'#392b26','#221b24',5);this.circle(x,y,r,'#6d4a33','#bf8f58',3);this.circle(x,y,r-9,'#f7edd1','#201f29',4);this.circle(x,y,r-16,'#eaddba');for(let n=0;n<=20;n++){const a=(140+n/20*260)*Math.PI/180;const major=n%4===0;this.line([[x+Math.cos(a)*(r-21),y+Math.sin(a)*(r-21)],[x+Math.cos(a)*(r-(major?32:27)),y+Math.sin(a)*(r-(major?32:27))]],n>=18?'#bf5b51':'#5a4a3b',major?3:2);if(major){c.fillStyle='#574b3b';c.font='bold 12px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(n*5),x+Math.cos(a)*(r-42),y+Math.sin(a)*(r-42));}}
-  const a=(140+clamp(kmh,0,100)/100*260)*Math.PI/180;this.line([[x,y],[x+Math.cos(a)*(r-31),y+Math.sin(a)*(r-31)]],'#c8544c',5);this.circle(x,y,7,'#5b4538');this.rect(x-37,y+30,74,28,'#43352f');c.fillStyle=kmh>=90?'#c8ed83':'#fff1c9';c.font=`bold ${this.portrait?36:28}px monospace`;c.textAlign='center';c.fillText(String(kmh).padStart(2,'0'),x,y+46);c.font='bold 11px sans-serif';c.fillStyle='#746146';c.fillText('km/h',x,y+69);
+ } speedometer(kmh){const c=this.ctx,{x,y,r}=C.speedometer,dialMax=Math.max(100,Math.ceil(kmh/20)*20);this.circle(x,y,r+4,'#392b26','#221b24',5);this.circle(x,y,r,'#6d4a33','#bf8f58',3);this.circle(x,y,r-9,'#f7edd1','#201f29',4);this.circle(x,y,r-16,'#eaddba');for(let n=0;n<=20;n++){const a=(140+n/20*260)*Math.PI/180;const major=n%4===0;this.line([[x+Math.cos(a)*(r-21),y+Math.sin(a)*(r-21)],[x+Math.cos(a)*(r-(major?32:27)),y+Math.sin(a)*(r-(major?32:27))]],n>=18?'#bf5b51':'#5a4a3b',major?3:2);if(major){c.fillStyle='#574b3b';c.font='bold 12px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(Math.round(n/20*dialMax)),x+Math.cos(a)*(r-42),y+Math.sin(a)*(r-42));}}
+  const a=(140+clamp(kmh,0,dialMax)/dialMax*260)*Math.PI/180;this.line([[x,y],[x+Math.cos(a)*(r-31),y+Math.sin(a)*(r-31)]],'#c8544c',5);this.circle(x,y,7,'#5b4538');this.rect(x-37,y+30,74,28,'#43352f');c.fillStyle=kmh>=90?'#c8ed83':'#fff1c9';c.font=`bold ${this.portrait?36:28}px monospace`;c.textAlign='center';c.fillText(String(kmh).padStart(2,'0'),x,y+46);c.font='bold 11px sans-serif';c.fillStyle='#746146';c.fillText('km/h',x,y+69);
  }
  addEffect(food,y){for(let i=0;i<10;i++)this.particles.push({x:C.bike.pickup.x,y:y-34,age:0,dx:(hash(i+food.group*17)-.5)*145,dy:-40-hash(i+2)*85,color:(food.kind==='spoiled'||food.kind==='overfed')?'#eb6d57':food.kind==='water'?'#a0e5fa':'#fff5a6'});}
  draw(g,dt,stage,stageTime=0){this.resize();const c=this.ctx,v=this.view;c.save();c.scale(this.canvas.width/v.width,this.canvas.height/v.height);c.imageSmoothingEnabled=false;this.paintBackground(g,dt,stage);this.comic(g);
@@ -567,7 +581,7 @@ $('skip').onclick=result;
 function tick(dt){
  if(stage==='paused'||stage==='start'||stage==='success'||stage==='failure')return;
  if(stage==='countdown'){const old=Math.floor(stageTime);stageTime+=dt;if(stageTime>=3){setStage('running');overlay.hidden=true;beep(880,.2);}else if(Math.floor(stageTime)!==old){card.querySelector('.countdown').textContent=3-Math.floor(stageTime);beep(440,.08);}return;}
- if(stage==='running'){if(keys.has('ArrowUp'))game.targetY-=C.moveSpeed*dt;if(keys.has('ArrowDown'))game.targetY+=C.moveSpeed*dt;game.step(dt);for(const e of game.events.splice(0)){if(e.type==='overfeedStart'){setHint('과영양! '+(e.food.label||e.food.name)+'는 잠깐 쉬어요!',true);beep(330,.12);continue;}if(e.type==='overfeedEnd'){setHint('과영양 해제! 다시 골고루 먹어요!',true);continue;}renderer.addEffect(e.food,e.y);beep((e.food.kind==='spoiled'||e.food.kind==='overfed')?110:e.food.kind==='water'?1000:650+e.food.group*90,.08);if(e.food.kind==='overfed')setHint('과영양 음식! 잠깐 피해요!',true);else if(e.food.kind==='spoiled')setHint('상한 음식! 조심해요!',true);else if(e.food.kind==='water')setHint('수분 충전! 다시 힘차게!',true);else if(e.food.kind==='snack'&&game.m.K)setHint('단 간식은 잠깐 쉬어 가요!',true);}if(game.finishSnapshot){if(game.finishSnapshot.success){setStage('finish');setHint('골인! 끝까지 잘 달렸어요!',true);beep(1100,.25);}else result();}return;}
+ if(stage==='running'){if(keys.has('ArrowUp'))game.targetY-=C.moveSpeed*dt;if(keys.has('ArrowDown'))game.targetY+=C.moveSpeed*dt;game.step(dt);for(const e of game.events.splice(0)){if(e.type==='spaceStart'){setHint('우주 돌입! 매초 1km/h씩 가속!',true);beep(1200,.2);continue;}if(e.type==='spaceBreak'){setHint('빨간 음식! 80km/h로 감속!',true);beep(110,.2);continue;}if(e.type==='overfeedStart'){setHint('과영양! '+(e.food.label||e.food.name)+'는 잠깐 쉬어요!',true);beep(330,.12);continue;}if(e.type==='overfeedEnd'){setHint('과영양 해제! 다시 골고루 먹어요!',true);continue;}renderer.addEffect(e.food,e.y);beep((e.food.kind==='spoiled'||e.food.kind==='overfed')?110:e.food.kind==='water'?1000:650+e.food.group*90,.08);if(game.time<game.spaceRecoveryUntil&&(e.food.kind==='overfed'||e.food.kind==='spoiled'||e.food.kind==='snack'))setHint('빨간 음식! 80km/h로 감속!',true);else if(e.food.kind==='overfed')setHint('과영양 음식! 잠깐 피해요!',true);else if(e.food.kind==='spoiled')setHint('상한 음식! 조심해요!',true);else if(e.food.kind==='water')setHint('수분 충전! 다시 힘차게!',true);else if(e.food.kind==='snack'&&game.m.K)setHint('단 간식은 잠깐 쉬어 가요!',true);}if(game.finishSnapshot){if(game.finishSnapshot.success){setStage('finish');setHint('골인! 끝까지 잘 달렸어요!',true);beep(1100,.25);}else result();}return;}
  stageTime+=dt;
  if(stage==='finish'&&stageTime>=C.finishAnimation){if(game.finishSnapshot.hasHighSpeedEnding)beginEnding();else result();}
  else if(stage==='ending1'&&stageTime>=C.endings[0].duration){setStage('endingTransition');$('endingImage').style.opacity='0';}
