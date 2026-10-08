@@ -88,3 +88,9 @@ manifest의 고정 허브를 기준으로 사람이 붙은 프레임 연결점�
 드래그 기준점과 음식 획득 위치는 그대로입니다. 자세·페달 단계와 잔상이 획득 위치를 바꾸지 않습니다. 일시정지 시 이동량과 dt는 0, 재시작 시 애니메이션도 초기화합니다. 골인 엔딩 판정은 finishSnapshot.finishSpeedKmh >= 70을 계속 사용합니다. 첫 엔딩 그림 2.3초와 두 번째 2.4초를 유지합니다.
 
 추가 변경 파일: dist/bike-renderer.js, dist/bike-manifest.js, dist/assets/bike-pack/, dist/geometry.js, dist/render.js, dist/app.js, dist/config.js, make-portable.mjs, index.html, tests/bike-pack.test.mjs와 관련 테스트. 변경 후 node make-portable.mjs로 실행 HTML을 다시 만듭니다.
+
+## 90km/h 초과 우주 질주 연출
+
+계기판 정수 표시가 91km/h 이상이면 짙은 우주 배경으로 전환합니다. 90km/h 이하에서는 기존 공원 배경으로 돌아갑니다. 전환은 0.28초 페이드이며 일시정지 중에는 멈춥니다. 청색·분홍색·주황색 빛줄기와 별이 깊이별로 빠르게 오른쪽에서 왼쪽으로 흐릅니다. 세로와 가로 화면에서 같은 효과를 사용하며, 캐릭터·음식·HUD에는 이 배경 처리를 적용하지 않습니다. 재시작/카운트다운에는 우주 효과를 초기화합니다. 주행 거리·속도·영양 계산과 골인/엔딩 판정은 바꾸지 않습니다.
+
+조절 위치: dist/config.js의 space 항목, dist/view.js의 spaceTarget, dist/render.js의 makeSpaceBackdrop 및 paintSpace.

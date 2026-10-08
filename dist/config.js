@@ -8,6 +8,7 @@ export const CONFIG={
   poseTransition:.2,pixelDistanceScale:8,minItemScrollSpeed:205,itemStartX:1340,itemRadius:16,
   scenery:{cloud:.65,mountain:2,tree:12,rail:23,road:38,foreground:54},
   turbo:{threshold:70,response:.18,boost:3.2,smear:22},
+  space:{threshold:90,fadeTime:.28,scrollScale:160,stars:220,maxTrail:450},
   portrait:{width:720,bikeScale:.8,itemSize:72,itemLabelSize:22,roadTopRatio:.34,roadBottomRatio:.96},
   itemSize:66,itemLabelSize:17,foodOutline:6,itemStagger:18,itemSeparation:128,itemGapX:210,itemGapY:128,
   bike:{x:280,minY:245,maxY:535,startY:415,groundDY:118,pickup:{x:354,dy:118,rx:38,ry:23},
