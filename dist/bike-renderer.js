@@ -33,7 +33,7 @@ function frontStructure(texture){
 export class FoodBikeRenderer{
  constructor(manifest,images){this.manifest=manifest;this.images=images;this.textures={rearWheel:mappedTexture(images.rearWheel,manifest.wheels.rearWheel),frontWheel:frontStructure(mappedTexture(images.frontWheel,manifest.wheels.frontWheel))};this.reset();}
  reset(){this.speedKmh=0;this.fast=false;this.distance=0;this.pedalPhase=0;this.poseMix=0;}
- update(displayedSpeedKmh,dt,traveledPixels=0){this.speedKmh=Math.round(clamp(displayedSpeedKmh,0,100));this.fast=poseFor(this.fast,this.speedKmh);dt=Math.max(0,dt);this.distance+=Number.isFinite(traveledPixels)?Math.max(0,traveledPixels):0;this.pedalPhase=(this.pedalPhase+pedalFps(this.speedKmh,this.fast)*dt/4)%1;const target=Number(this.fast),step=dt/C.poseTransition;this.poseMix+=clamp(target-this.poseMix,-step,step);}
+ update(displayedSpeedKmh,dt,traveledPixels=0){this.speedKmh=Math.round(Math.max(0,displayedSpeedKmh));this.fast=poseFor(this.fast,this.speedKmh);dt=Math.max(0,dt);this.distance+=Number.isFinite(traveledPixels)?Math.max(0,traveledPixels):0;this.pedalPhase=(this.pedalPhase+pedalFps(this.speedKmh,this.fast)*dt/4)%1;const target=Number(this.fast),step=dt/C.poseTransition;this.poseMix+=clamp(target-this.poseMix,-step,step);}
  get phase(){return Math.floor(this.pedalPhase*4)%4;}
  get frame(){const ids=this.fast?this.manifest.animations.fast:this.manifest.animations.normal;return this.manifest.frames[ids[this.phase]];}
  wheelAngles(){return {rear:this.distance/this.manifest.wheels.rearWheel.radius,front:this.distance/this.manifest.wheels.frontWheel.radius};}

@@ -1,10 +1,10 @@
 import {CONFIG as C} from './config.js';
 import {GROUPS} from './foods.js';
-import {clamp} from './model.js';
+import {clamp,internalSpeed} from './model.js';
 import {wheelGeometry} from './geometry.js';
 import {FoodBikeRenderer} from './bike-renderer.js';
 import {BIKE_MANIFEST} from './bike-manifest.js';
-import {viewFor,roadProjection,projectX,projectY,turboTarget,spaceTarget,foodAppearance} from './view.js';
+import {viewFor,roadProjection,projectX,projectY,turboTarget,spaceTarget,foodAppearance,finishMotionSpeed,finishExitOffset} from './view.js';
 const hash=n=>{n=(n^61)^(n>>>16);n=Math.imul(n,9);n=n^(n>>>4);n=Math.imul(n,0x27d4eb2d);n=n^(n>>>15);return (n>>>0)/4294967296;};
 export class Renderer{
  constructor(canvas,assets){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.assets=assets;this.particles=[];this.outlineCache=new Map();this.bikeSprite=new FoodBikeRenderer(BIKE_MANIFEST,assets.bike);this.resetBike();this.portrait=true;this.turbo=0;this.space=0;this.spaceDistance=0;this.spaceBackdrop=this.makeSpaceBackdrop();this.comicAge=0;this.sceneryDistance=0;this.lastDistance=0;this.road=this.makeRoad();this.trees=[0,1,2].map(i=>this.makeTree(i));this.scene=document.createElement('canvas');this.scene.width=C.width;this.scene.height=C.height;this.sceneCtx=this.scene.getContext('2d');this.smear=document.createElement('canvas');this.smear.height=C.height;}
@@ -12,8 +12,8 @@ export class Renderer{
  resize(){const bounds=this.canvas.getBoundingClientRect?.();const w=this.canvas.clientWidth||bounds?.width||C.width,h=this.canvas.clientHeight||bounds?.height||C.height;this.view=viewFor(w,h,this.portrait);const width=Math.max(this.view.width,Math.round(w*Math.min(2,globalThis.devicePixelRatio||1))),height=Math.round(width*this.view.height/this.view.width);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}}
  paintBackground(g,dt,stage){
   if(stage==='start'||stage==='countdown'||g.distance<this.lastDistance){this.turbo=0;this.space=0;this.spaceDistance=0;this.sceneryDistance=g.distance;this.comicAge=0;}
-  else {const before=this.turbo;this.turbo+=(turboTarget(g.displayedSpeedKmh)-this.turbo)*(1-Math.exp(-dt/C.turbo.response));this.space+=clamp(spaceTarget(g.displayedSpeedKmh,g.topSpeedHeldSec||0,!!g.finishSnapshot)-this.space,-dt/C.space.fadeTime,dt/C.space.fadeTime);if(before<.2&&this.turbo>=.2)this.comicAge=1.1;this.comicAge=Math.max(0,this.comicAge-dt);const travel=Math.max(0,g.distance-this.lastDistance)+(stage==='finish'?g.speed*dt:0);this.sceneryDistance+=travel*(1+C.turbo.boost*this.turbo);this.spaceDistance+=travel*C.space.scrollScale;}
-  if(g.finishSnapshot){this.space=0;this.turbo=0;this.comicAge=0;}this.lastDistance=g.distance;const main=this.ctx;this.ctx=this.sceneCtx;this.background(this.sceneryDistance);this.ctx=main;
+  else {const before=this.turbo;this.turbo+=(turboTarget(finishMotionSpeed(g))-this.turbo)*(1-Math.exp(-dt/C.turbo.response));if(g.finishSnapshot?.success)this.turbo=turboTarget(finishMotionSpeed(g));this.space+=clamp(spaceTarget(g.displayedSpeedKmh,g.topSpeedHeldSec||0,!!g.finishSnapshot)-this.space,-dt/C.space.fadeTime,dt/C.space.fadeTime);if(before<.2&&this.turbo>=.2)this.comicAge=1.1;this.comicAge=Math.max(0,this.comicAge-dt);const travel=Math.max(0,g.distance-this.lastDistance)+(stage==='finish'?internalSpeed(finishMotionSpeed(g))*dt:0);this.sceneryDistance+=travel*(1+C.turbo.boost*this.turbo);this.spaceDistance+=travel*C.space.scrollScale;}
+  if(g.finishSnapshot){this.space=0;if(!g.finishSnapshot.success)this.turbo=0;this.comicAge=0;}this.lastDistance=g.distance;const main=this.ctx;this.ctx=this.sceneCtx;this.background(this.sceneryDistance);this.ctx=main;
   let bg=this.scene;if(this.turbo>.02){const w=Math.max(40,Math.round(C.width/(1+C.turbo.smear*this.turbo)));if(this.smear.width!==w)this.smear.width=w;const s=this.smear.getContext('2d');s.imageSmoothingEnabled=true;s.clearRect(0,0,w,C.height);s.drawImage(this.scene,0,0,w,C.height);bg=this.smear;}
   const c=this.ctx,v=this.view,r=roadProjection(v);c.save();c.imageSmoothingEnabled=true;
   const paint=(dx=0)=>{if(v.portrait){c.drawImage(bg,0,0,bg.width,310,dx,0,v.width,r.top);c.drawImage(bg,0,310,bg.width,366,dx,r.top,v.width,r.bottom-r.top);c.drawImage(bg,0,676,bg.width,44,dx,r.bottom,v.width,v.height-r.bottom);}else c.drawImage(bg,dx,0,v.width,v.height);};paint();
@@ -59,9 +59,10 @@ export class Renderer{
  person(x,y,i){this.rect(x-10,y-26,19,23,'#263344');this.rect(x-8,y-21,15,15,'#eeb991');this.rect(x-10,y-26,19,8,'#283431');this.rect(x-5,y-15,2,3,'#263344');this.rect(x+3,y-15,2,3,'#263344');this.rect(x-7,y-5,15,11,['#e98291','#8ab5ce','#e9c363'][i%3]);this.rect(x+11,y-18,5,9,'#eeb991');this.rect(x+13,y-24,5,8,'#eeb991');this.rect(x-12,y-3,6,6,'#eeb991');}
  bike(g,dt,offset=0){const c=this.ctx,geometry=wheelGeometry(),ground=g.y+C.bike.groundDY;
   if(g.distance<this.lastBikeDistance||g.time<this.lastBikeTime)this.resetBike();
-  const traveled=(Math.max(0,g.distance-this.lastBikeDistance)*C.scenery.road+Math.max(0,offset-this.lastBikeOffset))/C.bike.pack.scale;
   const actualDt=dt>0?(g.finishSnapshot?dt:Math.max(0,g.time-this.lastBikeTime)):0;
-  this.bikeSprite.update(dt>0?g.displayedSpeedKmh:Math.max(0,this.bikeSprite.speedKmh),actualDt,dt>0?traveled:0);
+  const coast=g.finishSnapshot?.success?internalSpeed(finishMotionSpeed(g))*actualDt:0;
+  const traveled=((Math.max(0,g.distance-this.lastBikeDistance)+coast)*C.scenery.road+Math.max(0,offset-this.lastBikeOffset))/C.bike.pack.scale;
+  this.bikeSprite.update(dt>0?finishMotionSpeed(g):Math.max(0,this.bikeSprite.speedKmh),actualDt,dt>0?traveled:0);
   this.lastBikeDistance=g.distance;this.lastBikeTime=g.time;this.lastBikeOffset=offset;
   const rearX=geometry.rearX+offset,frontX=geometry.frontX+offset;
   this.poly(Array.from({length:32},(_,i)=>[(rearX+frontX)/2+Math.cos(i*Math.PI/16)*120,ground+4+Math.sin(i*Math.PI/16)*8]),'#353a3844');
@@ -76,9 +77,9 @@ export class Renderer{
  draw(g,dt,stage,stageTime=0){this.resize();const c=this.ctx,v=this.view;c.save();c.scale(this.canvas.width/v.width,this.canvas.height/v.height);c.imageSmoothingEnabled=false;this.paintBackground(g,dt,stage);this.comic(g);
   if(C.finishDistance-g.distance<80){const wx=C.bike.pickup.x+(C.finishDistance-g.distance)*C.scenery.road,x=projectX(wx,v),top=projectY(310,v),bottom=projectY(673,v);this.rect(x-5,top,10,bottom-top,'#f1e9d8');for(let yy=top;yy<bottom;yy+=20)for(let xx=0;xx<2;xx++)this.rect(x-14+xx*18,yy,18,20,(Math.floor(yy/20)+xx)%2?'#28303b':'#f2e9d6');this.rect(x-60,top-30,120,24,'#43322b');c.fillStyle='#f6e9cb';c.font='bold 16px sans-serif';c.textAlign='center';c.fillText('FINISH',x,top-12);}
   for(const item of [...g.items].sort((a,b)=>a.y-b.y))this.food(item,g);
-  const running=stage==='running'||stage==='finish',offset=stage==='finish'?stageTime*210:g.finishSnapshot?.success?this.finishOffset:0;if(stage==='finish')this.finishOffset=offset;
+  const running=stage==='running'||stage==='finish',offset=stage==='finish'?finishExitOffset(stageTime):g.finishSnapshot?.success?(stage==='paused'?this.finishOffset:C.finishExitDistance):0;if(stage==='finish')this.finishOffset=offset;
   if(v.portrait){const ground=g.y+C.bike.groundDY,front=C.bike.pickup.x+offset;c.save();c.translate(projectX(front,v),projectY(ground,v));c.scale(C.portrait.bikeScale,C.portrait.bikeScale);c.translate(-front,-ground);this.bike(g,running?dt:0,offset);c.restore();}else this.bike(g,running?dt:0,offset);
   for(const p of this.particles){if(running){p.age+=dt;p.x+=p.dx*dt;p.y+=p.dy*dt;}const s=5*(1-p.age/.7);if(s>0)this.rect(projectX(p.x,v),projectY(p.y,v),s,s,p.color);}this.particles=this.particles.filter(p=>p.age<.7);
-  const kmh=['start','countdown'].includes(stage)?0:g.displayedSpeedKmh;if(v.portrait){const scale=68/C.speedometer.r;c.save();c.translate(v.width-84,v.height*.235);c.scale(scale,scale);c.translate(-C.speedometer.x,-C.speedometer.y);this.speedometer(kmh);c.restore();}else this.speedometer(kmh);c.restore();
+  const kmh=['start','countdown'].includes(stage)?0:g.finishSnapshot?.success?g.finishSnapshot.finishSpeedKmh:g.displayedSpeedKmh;if(v.portrait){const scale=68/C.speedometer.r;c.save();c.translate(v.width-84,v.height*.235);c.scale(scale,scale);c.translate(-C.speedometer.x,-C.speedometer.y);this.speedometer(kmh);c.restore();}else this.speedometer(kmh);c.restore();
  }
 }

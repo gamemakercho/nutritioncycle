@@ -7,4 +7,7 @@ export function projectY(y,view){const road=roadProjection(view);return road.top
 export function dragWorldDelta(dx,dy,bounds,portrait,rotated){const width=rotated?bounds.height:bounds.width,height=rotated?bounds.width:bounds.height;const view=viewFor(width||C.width,height||C.height,portrait);return (rotated?-dx:dy)*view.height/Math.max(1,height)/roadProjection(view).scale;}
 export function turboTarget(kmh){return kmh<C.turbo.threshold?0:.45+.55*Math.min(1,(kmh-C.turbo.threshold)/(100-C.turbo.threshold));}
 export function spaceTarget(kmh,heldSeconds=0,finished=false){return !finished&&kmh>=C.space.threshold&&heldSeconds+1e-9>=C.space.holdSeconds?1:0;}
+// Finish motion is presentation only; the saved race result remains authoritative.
+export const finishMotionSpeed=g=>g.finishSnapshot?.success?Math.max(100,g.finishSnapshot.finishSpeedKmh):g.displayedSpeedKmh;
+export const finishExitOffset=elapsed=>C.finishExitDistance*Math.max(0,Math.min(1,elapsed/C.finishExitDuration));
 export function foodAppearance(food,m){if(food.kind==='food'&&m.overfedFoods?.includes(food.id))return {color:'#ed5c55',type:'overfed'};if(food.kind==='snack'||food.kind==='spoiled'||food.kind==='overfed')return {color:'#ed5c55',type:'caution'};const needed=food.kind==='water'||food.kind==='food'&&m.counts[food.group]<C.targets[food.group];return needed?{color:'#4cac63',type:'needed'}:{color:'#e4ba45',type:'normal'};}
