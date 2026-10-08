@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>식품구성자전거 스프라이트 미리보기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #172c35; color: #eef6f3; font: 16px system-ui,sans-serif; }
+    main { width: min(1000px, 100%); padding: 20px; margin: auto; }
+    h1 { font-size: 23px; margin: 0 0 6px; }
+    p { color: #bdd7d5; line-height: 1.6; margin: 6px 0 14px; }
+    canvas { display: block; width: 100%; aspect-ratio: 1000 / 650; background: #c8e9ee; border: 4px solid #385e69; border-radius: 12px; image-rendering: pixelated; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 15px 0; }
+    button { color: #effffb; background: #355b65; border: 1px solid #5c8990; border-radius: 8px; padding: 11px 16px; cursor: pointer; font: inherit; }
+    button:hover { background: #497880; }
+    label { flex: 1; min-width: 220px; display: flex; align-items: center; gap: 12px; }
+    input { flex: 1; min-width: 120px; accent-color: #ff90b4; }
+    output { font-variant-numeric: tabular-nums; min-width: 75px; }
+    #mode { padding: 7px 12px; color: #17313a; background: #a9e7de; border-radius: 6px; }
+    footer { color: #c0d2d0; line-height: 1.6; font-size: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>식품구성자전거 · 스프라이트 동작 미리보기</h1>
+  <p>사람과 프레임은 함께 움직이고, 식품 뒷바퀴와 물 앞바퀴는 각 중심에서 따로 회전합니다.</p>
+  <canvas id="scene" width="1000" height="650" aria-label="자전거 주행 애니메이션"></canvas>
+  <div class="controls">
+    <button id="normal">일반 주행 45</button>
+    <button id="fast">고속 주행 85</button>
+    <button id="max">최고 속도 100</button>
+    <button id="pause">일시정지</button>
+    <span id="mode">준비 중</span>
+  </div>
+  <label>속도 <input id="speed" type="range" min="0" max="100" value="45"><output id="number">45 km/h</output></label>
+  <p id="status">에셋을 불러오는 중입니다.</p>
+  <footer>윗줄 4프레임: 일반 주행 / 아랫줄 4프레임: 고속 주행. 고속은 다리 회전 잔상과 몸 뒤쪽 잔상을 포함합니다. 70km/h에서 진입하고 65km/h 이하에서 일반 자세로 돌아옵니다.</footer>
+</main>
+<script src="manifest.js"></script>
+<script src="renderer.js"></script>
+<script>
+  (async function () {
+    const canvas = document.getElementById('scene');
+    const ctx = canvas.getContext('2d');
+    const speed = document.getElementById('speed');
+    const number = document.getElementById('number');
+    const mode = document.getElementById('mode');
+    const status = document.getElementById('status');
+    let bike;
+    try { bike = await FoodBikeRenderer.load(FOOD_BIKE_MANIFEST); }
+    catch (error) { status.textContent = error.message; window.previewError = error.message; return; }
+    window.bikePreview = bike;
+    status.textContent = '로딩 완료. 속도를 조절해 두 자세와 회전 잔상을 확인하세요.';
+    let paused = false;
+    let last = performance.now();
+    let travel = 0;
+    function setSpeed(value) { speed.value = value; speed.dispatchEvent(new Event('input')); }
+    document.getElementById('normal').onclick = () => setSpeed(45);
+    document.getElementById('fast').onclick = () => setSpeed(85);
+    document.getElementById('max').onclick = () => setSpeed(100);
+    document.getElementById('pause').onclick = () => {
+      paused = !paused;
+      document.getElementById('pause').textContent = paused ? '이어하기' : '일시정지';
+    };
+    speed.oninput = () => { number.textContent = speed.value + ' km/h'; };
+    document.addEventListener('visibilitychange', () => { last = performance.now(); });
+    function loop(now) {
+      const dt = Math.min((now - last) / 1000, 0.04);
+      last = now;
+      const active = !paused && !document.hidden;
+      const value = Number(speed.value);
+      bike.update(value, active ? dt : 0);
+      if (active) travel += value * 10 * dt;
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#c8e9ee'; ctx.fillRect(0, 0, 1000, 650);
+      ctx.fillStyle = '#9ccec1'; ctx.fillRect(0, 285, 1000, 90);
+      ctx.fillStyle = '#639779'; ctx.fillRect(0, 355, 1000, 30);
+      ctx.fillStyle = '#6b7780'; ctx.fillRect(0, 385, 1000, 265);
+      ctx.fillStyle = '#b3d3b0'; ctx.fillRect(0, 378, 1000, 10);
+      ctx.fillStyle = '#b4bfc1';
+      for (let i = -1; i < 12; i++) ctx.fillRect(i * 120 - travel % 120, 564, 64, 8);
+      bike.draw(ctx, 245, 50, 0.9);
+      ctx.fillStyle = '#1d3d48'; ctx.font = 'bold 25px system-ui';
+      ctx.fillText(value + ' km/h', 28, 45);
+      ctx.fillStyle = bike.fast ? '#f28ab1' : '#a9e7de';
+      ctx.fillRect(840, 20, 130, 39);
+      ctx.fillStyle = '#17313a'; ctx.font = 'bold 18px system-ui';
+      ctx.fillText(bike.fast ? '고속 주행' : '일반 주행', 861, 46);
+      mode.textContent = bike.fast ? '고속 주행' : '일반 주행';
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  })();
+</script>
+</body>
+</html>

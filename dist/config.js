@@ -8,11 +8,11 @@ export const CONFIG={
   poseTransition:.2,pixelDistanceScale:8,minItemScrollSpeed:205,itemStartX:1340,itemRadius:16,
   scenery:{cloud:.65,mountain:2,tree:12,rail:23,road:38,foreground:54},
   turbo:{threshold:70,response:.18,boost:3.2,smear:22},
-  portrait:{width:720,bikeScale:.8,itemSize:86,itemLabelSize:22,roadTopRatio:.34,roadBottomRatio:.96},
-  itemSize:78,itemLabelSize:17,itemStagger:18,itemSeparation:128,itemGapX:210,itemGapY:128,
+  portrait:{width:720,bikeScale:.8,itemSize:72,itemLabelSize:22,roadTopRatio:.34,roadBottomRatio:.96},
+  itemSize:66,itemLabelSize:17,foodOutline:6,itemStagger:18,itemSeparation:128,itemGapX:210,itemGapY:128,
   bike:{x:280,minY:245,maxY:535,startY:415,groundDY:118,pickup:{x:354,dy:118,rx:38,ry:23},
-    rear:{x:-72,y:48,r:62,growth:8,tire:5,outlineWidth:4},front:{x:74,y:68.5,r:45},crank:{x:8,y:17},handle:{x:48,y:-24},
-    sprite:{path:'assets/sprites/rider.png',manifest:'assets/sprites/manifest.json',x:-78,y:-109,w:160,h:160}},
+    pack:{base:'assets/bike-pack',scale:.45,deformSegments:64,foodAngles:[-.98,.45,1.31,-2.16,2.87,2.01]},
+    sprite:{path:'assets/bike-pack/assets/rider_frame_sheet.png',manifest:'assets/bike-pack/manifest.json'}},
   speedometer:{x:1174,y:105,r:87},
-  endings:[{path:'assets/endings/ending-01.png',duration:1.8},{path:'assets/endings/ending-02.png',duration:2.4}],endingTransition:.18,finishAnimation:1.05
+  endings:[{path:'assets/endings/ending-01.png',duration:2.3},{path:'assets/endings/ending-02.png',duration:2.4}],endingTransition:.18,finishAnimation:1.05
 };
