@@ -1,0 +1,211 @@
+{
+  "image": "assets/sprites/rider.png",
+  "cell": {
+    "w": 160,
+    "h": 160
+  },
+  "columns": 4,
+  "rows": 2,
+  "anchor": [
+    78,
+    109
+  ],
+  "handle": [
+    126,
+    85
+  ],
+  "crank": [
+    86,
+    126
+  ],
+  "rearWheel": [
+    6,
+    157
+  ],
+  "frontWheel": [
+    152,
+    177.5
+  ],
+  "pedalRadius": 14,
+  "frames": [
+    {
+      "pose": "normal",
+      "phase": 0,
+      "x": 0,
+      "y": 0,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          100,
+          126
+        ],
+        [
+          72,
+          126
+        ]
+      ]
+    },
+    {
+      "pose": "normal",
+      "phase": 1,
+      "x": 160,
+      "y": 0,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          86,
+          140
+        ],
+        [
+          86,
+          112
+        ]
+      ]
+    },
+    {
+      "pose": "normal",
+      "phase": 2,
+      "x": 320,
+      "y": 0,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          72,
+          126
+        ],
+        [
+          100,
+          126
+        ]
+      ]
+    },
+    {
+      "pose": "normal",
+      "phase": 3,
+      "x": 480,
+      "y": 0,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          86,
+          112
+        ],
+        [
+          86,
+          140
+        ]
+      ]
+    },
+    {
+      "pose": "fast",
+      "phase": 0,
+      "x": 0,
+      "y": 160,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          100,
+          126
+        ],
+        [
+          72,
+          126
+        ]
+      ]
+    },
+    {
+      "pose": "fast",
+      "phase": 1,
+      "x": 160,
+      "y": 160,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          86,
+          140
+        ],
+        [
+          86,
+          112
+        ]
+      ]
+    },
+    {
+      "pose": "fast",
+      "phase": 2,
+      "x": 320,
+      "y": 160,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          72,
+          126
+        ],
+        [
+          100,
+          126
+        ]
+      ]
+    },
+    {
+      "pose": "fast",
+      "phase": 3,
+      "x": 480,
+      "y": 160,
+      "w": 160,
+      "h": 160,
+      "hands": [
+        126,
+        85
+      ],
+      "feet": [
+        [
+          86,
+          112
+        ],
+        [
+          86,
+          140
+        ]
+      ]
+    }
+  ],
+  "preparation": "Generated pink-uniform torsos aligned to one hand anchor; articulated pixel legs packed to exact four pedal phases.",
+  "ground": 227,
+  "wheelGeometry": "geometry.js keeps both tyre support points on the ground; centers adjust with deformation."
+}

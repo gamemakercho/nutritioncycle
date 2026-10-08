@@ -1,0 +1,6 @@
+.sites/
+node_modules/
+*.tar.gz
+*.zip
+튼튼바퀴_게임.html
+.openai/
