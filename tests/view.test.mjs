@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {CONFIG as C} from '../dist/config.js';
+import {Game,itemsOverlap,metrics} from '../dist/model.js';
+import {turboTarget,foodAppearance,viewFor,projectY,dragWorldDelta} from '../dist/view.js';
+import {byId} from '../dist/foods.js';
+test('high-speed effect starts at displayed 70 and grows to 100, even if pose remains fast at 68',()=>{assert.equal(turboTarget(69),0);assert.ok(turboTarget(70)>.4);assert.equal(turboTarget(68),0);assert.ok(turboTarget(100)>turboTarget(70));assert.equal(1+C.turbo.boost*turboTarget(100),4.2);});
+test('snacks/spoiled are always red, needed food/water green, filled food yellow',()=>{const m=metrics([],75,0),full=metrics(Array.from({length:3},()=>({kind:'food',group:0,time:0})),75,0);for(const id of ['candy','soda','badbread','badapple'])assert.equal(foodAppearance(byId(id),m).type,'caution');assert.equal(foodAppearance(byId('rice'),m).type,'needed');assert.equal(foodAppearance(byId('water'),full).type,'needed');assert.equal(foodAppearance(byId('rice'),full).type,'normal');});
+test('portrait projection keeps relative finger movement at the food shadow; rotated view swaps axes',()=>{const bounds={width:360,height:640},v=viewFor(360,640,true),dy=dragWorldDelta(0,100,bounds,true,false);assert.ok(Math.abs((projectY(500+dy,v)-projectY(500,v))*640/v.height-100)<1e-8);assert.equal(dragWorldDelta(-80,0,{width:360,height:640},false,true),160);});
+test('all live items retain spacing across waves, including worst speed and both food kinds',()=>{for(let seed=1;seed<=5;seed++){const g=new Game(seed);g.speed=8;g.water=0;g.records=Array.from({length:20},()=>({kind:'snack',time:0}));for(let frame=0;frame<1200;frame++){g.step(1/60);for(let i=0;i<g.items.length;i++)for(let j=i+1;j<g.items.length;j++)assert.equal(itemsOverlap(g.items[i],g.items[j]),false,JSON.stringify([g.items[i],g.items[j]]));}assert.ok(Math.max(...g.items.map(i=>i.x))<1900);}});

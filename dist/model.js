@@ -13,6 +13,8 @@ export function metrics(records,water,time){
 export function desiredSpeed(m,spoiled=false){let M=clamp(.75+.75*m.F-.55*m.I-.25*m.H-.2*m.K,C.minMultiplier,C.maxMultiplier);if(spoiled)M=Math.max(C.minMultiplier,M*C.spoiledMultiplier);return C.baseSpeed*M;}
 export const displayedSpeed=speed=>Math.round(clamp(speed/C.maxInternalSpeed*C.maxDisplaySpeed,0,C.maxDisplaySpeed));
 export const poseFor=(fast,kmh)=>fast?kmh>C.fastExit:kmh>=C.fastEnter;
+export const itemScrollSpeed=speed=>Math.max(C.minItemScrollSpeed,speed*C.pixelDistanceScale);
+export const itemsOverlap=(a,b)=>Math.abs(a.x-b.x)<C.itemGapX-.001&&Math.abs(a.y-b.y)<C.itemGapY-.001;
 export function leastGroup(m){if(m.F>=1&&m.I>0)return m.proportions.map((p,i)=>p-m.weights[i]).indexOf(Math.min(...m.proportions.map((p,i)=>p-m.weights[i])));const ratios=m.counts.map((c,i)=>c/C.targets[i]);return ratios.indexOf(Math.min(...ratios));}
 export function advice(m,water){if(water<C.waterLow)return '물이 부족해요!';if(m.K)return '단 간식은 잠깐 쉬어 가요!';if(m.N<3)return '다양한 식품을 모아 봐!';if(m.F>=1&&m.I===0)return '균형 좋아요! 물도 챙겨요!';return GROUPS[leastGroup(m)].hint;}
 export class Game{
@@ -21,6 +23,16 @@ export class Game{
  random(){this.seed=(1664525*this.seed+1013904223)>>>0;return this.seed/4294967296;}
  take(food){if(this.finishSnapshot)return;this.totals[food.group]>=0&&this.totals[food.group]++;if(food.kind==='water'){this.water=clamp(this.water+C.waterRecovery,0,100);}else if(food.kind==='spoiled'){this.spoiledHits++;this.spoiledUntil=this.time+C.spoiledDuration;this.m=metrics(this.records,this.water,this.time);this.speed=desiredSpeed(this.m,true);this.displayedSpeedKmh=displayedSpeed(this.speed);}else this.records.push({kind:food.kind,group:food.group,time:this.time});this.events.push({type:'take',food,y:this.y+C.bike.pickup.dy});}
  foodFor(group){const list=FOODS.filter(f=>f.group===group);return list[Math.floor(this.random()*list.length)];}
+ placeItem(food,x,wantedY){
+  const min=C.bike.minY+C.bike.groundDY+10,max=C.bike.maxY+C.bike.groundDY-12;
+  for(let attempt=0;attempt<30;attempt++){
+   let free=[[min,max]];
+   for(const other of this.items){if(Math.abs(other.x-x)>=C.itemGapX)continue;const lo=other.y-C.itemGapY,hi=other.y+C.itemGapY;free=free.flatMap(([a,b])=>hi<=a||lo>=b?[[a,b]]:[...(lo>a?[[a,Math.min(lo,b)]]:[]),...(hi<b?[[Math.max(hi,a),b]]:[])]);}
+   if(free.length){const candidates=free.map(([a,b])=>clamp(wantedY,a,b)).sort((a,b)=>Math.abs(a-wantedY)-Math.abs(b-wantedY));const item={id:this.nextId++,food,x,y:candidates[0],taken:false,born:this.time};this.items.push(item);return item;}
+   x+=C.itemGapX+8;
+  }
+  const item={id:this.nextId++,food,x:Math.max(x,...this.items.map(i=>i.x+C.itemGapX+8)),y:clamp(wantedY,min,max),taken:false,born:this.time};this.items.push(item);return item;
+ }
  spawn(){
   // A fair scheduled option, plus a second choice. Randomness never removes required options.
   const m=metrics(this.records,this.water,this.time);let g;
@@ -37,7 +49,7 @@ export class Game{
   let secondY=min+this.random()*span;
   if(Math.abs(secondY-firstY)<C.itemSeparation){secondY=firstY<span/2+min?Math.min(max,firstY+C.itemSeparation):Math.max(min,firstY-C.itemSeparation);}
   const entrance=this.offerCount===0?1040:C.itemStartX;
-  [primary,secondary].forEach((food,i)=>this.items.push({id:this.nextId++,food,x:entrance+i*(C.itemStagger+this.random()*60),y:i===0?firstY:secondY,taken:false,born:this.time}));this.offerCount++;
+  [primary,secondary].forEach((food,i)=>this.placeItem(food,entrance+i*C.itemStagger,i===0?firstY:secondY));this.offerCount++;
  }
  step(dt){
   if(this.finishSnapshot||dt<=0)return;dt=Math.min(dt,C.timeLimit-this.time);
@@ -53,7 +65,7 @@ export class Game{
   this.balanceIntegral+=this.m.F*actual;this.imbalanceIntegral+=this.m.I*actual;this.dryIntegral+=this.m.H*actual;this.snackIntegral+=this.m.K*actual;
   if(this.time+1e-9>=this.nextSpawn){this.spawn();this.nextSpawn+=C.spawnInterval;}
   const pickup=C.bike.pickup;
-  for(const item of this.items){const old=item.x;item.x-=this.speed*C.pixelDistanceScale*actual;
+  for(const item of this.items){const old=item.x;item.x-=itemScrollSpeed(this.speed)*actual;
    const rx=pickup.rx+C.itemRadius,ry=pickup.ry+C.itemRadius;const vertical=Math.abs(item.y-(this.y+pickup.dy));
    if(!item.taken&&vertical<ry&&old>=pickup.x-rx&&item.x<=pickup.x+rx){const dx=Math.max(0,Math.abs(item.x-pickup.x)-C.itemRadius);if((dx/pickup.rx)**2+(Math.max(0,vertical-C.itemRadius)/pickup.ry)**2<=1){item.taken=true;this.take(item.food);}}
   }this.items=this.items.filter(i=>!i.taken&&i.x>-80);
