@@ -1,42 +1,42 @@
 import {CONFIG as C} from './config.js';
 import {GROUPS,FOODS} from './foods.js';
 export const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-export function metrics(records,water,time,overfeeding={}){
+export function metrics(records,water,time,overfeeding={},snackUsed=false){
  const recent=records.filter(r=>time-r.time<C.recordWindow-1e-9);const counts=Array(5).fill(0);
- const foodCounts={};let snacks=0;for(const r of recent){if(r.kind==='food'){counts[r.group]++;if(r.foodId)foodCounts[r.foodId]=(foodCounts[r.foodId]||0)+1;}if(r.kind==='snack')snacks++;}
+ const foodCounts={};let snacks=0;for(const r of recent){if(r.kind==='food'){counts[r.group]++;if(r.foodId)foodCounts[r.foodId]=(foodCounts[r.foodId]||0)+1;}if(r.kind==='snack'||r.kind==='snackPenalty')snacks++;}
  const N=counts.reduce((a,b)=>a+b,0);const F=counts.reduce((a,c,i)=>a+Math.min(c/C.targets[i],1),0)/5;
  const proportions=counts.map(c=>N?c/N:0),weights=C.targets.map(t=>t/C.targets.reduce((a,b)=>a+b));
  const I=N<5?0:clamp((Math.max(...proportions.map((p,i)=>p-weights[i]))-C.imbalanceAllowance)/C.imbalanceRange,0,1);
- const H=clamp((C.waterLow-water)/C.waterLow,0,1),K=snacks>C.snackFree?1:0;
+ const H=clamp((C.waterLow-water)/C.waterLow,0,1),K=recent.some(r=>r.kind==='snackPenalty'&&time-r.time<C.spoiledDuration-1e-9)?1:0,snackFull=snackUsed||snacks>0;
  const overfedFoods=Object.keys(foodCounts).filter(id=>foodCounts[id]>=C.overfeed.threshold);let protectedNutrition=0;
  for(const [id,entry] of Object.entries(overfeeding)){if(entry.active&&!overfedFoods.includes(id))overfedFoods.push(id);const weight=entry.active?1:clamp((entry.graceUntil-time)/C.overfeed.graceSeconds,0,1);protectedNutrition=Math.max(protectedNutrition,entry.protectedNutrition*weight);}
- return {counts,foodCounts,overfedFoods,protectedNutrition,N,F,I,H,K,snacks,proportions,weights,balanced:F>=.8&&I<.15};
+ return {counts,foodCounts,overfedFoods,protectedNutrition,N,F,I,H,K,snacks,snackFull,proportions,weights,balanced:F>=.8&&I<.15};
 }
 export function nutritionMultiplier(m){return .75+.75*m.F-.55*m.I;}
-export function desiredSpeed(m,spoiled=false){let M=clamp(Math.max(nutritionMultiplier(m),m.protectedNutrition||0)-.25*m.H-.2*m.K,C.minMultiplier,C.maxMultiplier);if(spoiled)M=Math.max(C.minMultiplier,M*C.spoiledMultiplier);return C.baseSpeed*M;}
+export function desiredSpeed(m,spoiled=false){let M=clamp(Math.max(nutritionMultiplier(m),m.protectedNutrition||0)-.25*m.H,C.minMultiplier,C.maxMultiplier);if(spoiled)M=Math.max(C.minMultiplier,M*C.spoiledMultiplier);return C.baseSpeed*M;}
 export const displayedSpeed=speed=>Math.round(Math.max(0,speed)/C.maxInternalSpeed*C.baseDisplaySpeed);
 export const poseFor=(fast,kmh)=>fast?kmh>C.fastExit:kmh>=C.fastEnter;
 export const internalSpeed=kmh=>kmh/C.baseDisplaySpeed*C.maxInternalSpeed;
 export const itemScrollSpeed=speed=>speed<=0?0:C.itemBaseScrollSpeed+speed*C.pixelDistanceScale+C.itemAcceleration*Math.max(0,speed/C.maxInternalSpeed*C.baseDisplaySpeed-50)**2;
 export const itemsOverlap=(a,b)=>Math.abs(a.x-b.x)<C.itemGapX-.001&&Math.abs(a.y-b.y)<C.itemGapY-.001;
 export function leastGroup(m){if(m.F>=1&&m.I>0)return m.proportions.map((p,i)=>p-m.weights[i]).indexOf(Math.min(...m.proportions.map((p,i)=>p-m.weights[i])));const ratios=m.counts.map((c,i)=>c/C.targets[i]);return ratios.indexOf(Math.min(...ratios));}
-export function advice(m,water){if(water<C.waterLow)return '물이 부족해요!';if(m.K)return '단 간식은 잠깐 쉬어 가요!';if(m.N<3)return '다양한 식품을 모아 봐!';if(m.F>=1&&m.I===0)return '균형 좋아요! 물도 챙겨요!';return GROUPS[leastGroup(m)].hint;}
+export function advice(m,water){if(water<C.waterLow)return '물이 부족해요!';if(m.K)return '유지·당류는 한 번이면 충분해요!';if(m.N<3)return '다양한 식품을 모아 봐!';if(m.F>=1&&m.I===0)return '균형 좋아요! 물도 챙겨요!';return GROUPS[leastGroup(m)].hint;}
 export class Game{
  constructor(seed=12345){this.seed=seed;this.reset();}
- reset(){this.time=0;this.distance=0;this.water=C.waterStart;this.records=[];this.totals=Array(7).fill(0);this.spoiledHits=0;this.overfedHits=0;this.overfeeding={};this.topSpeedHeldSec=0;this.spaceActive=false;this.spaceElapsed=0;this.spaceRecoveryUntil=0;this.spoiledUntil=0;this.speed=internalSpeed(C.startSpeedKmh);this.displayedSpeedKmh=C.startSpeedKmh;this.fast=false;this.y=C.bike.startY;this.targetY=this.y;this.items=[];this.nextSpawn=0;this.nextId=1;this.lastOffered=Array(5).fill(-8);this.lastWater=-6;this.offerCount=0;this.balanceIntegral=0;this.imbalanceIntegral=0;this.dryIntegral=0;this.snackIntegral=0;this.finishSnapshot=null;this.events=[];this.m=metrics([],this.water,0);}
+ reset(){this.time=0;this.distance=0;this.water=C.waterStart;this.records=[];this.totals=Array(7).fill(0);this.spoiledHits=0;this.overfedHits=0;this.snackHits=0;this.overfeeding={};this.topSpeedHeldSec=0;this.spaceActive=false;this.spaceElapsed=0;this.spaceRecoveryUntil=0;this.spoiledUntil=0;this.speed=internalSpeed(C.startSpeedKmh);this.displayedSpeedKmh=C.startSpeedKmh;this.fast=false;this.y=C.bike.startY;this.targetY=this.y;this.items=[];this.nextSpawn=0;this.nextId=1;this.lastOffered=Array(5).fill(-8);this.lastWater=-6;this.offerCount=0;this.balanceIntegral=0;this.imbalanceIntegral=0;this.dryIntegral=0;this.snackIntegral=0;this.finishSnapshot=null;this.events=[];this.m=metrics([],this.water,0);}
  random(){this.seed=(1664525*this.seed+1013904223)>>>0;return this.seed/4294967296;}
- syncMetrics(){let m=metrics(this.records,this.water,this.time,this.overfeeding);for(const [id,entry] of Object.entries(this.overfeeding)){if(entry.active&&(m.foodCounts[id]||0)<=C.overfeed.releaseCount){entry.active=false;entry.graceUntil=this.time+C.overfeed.graceSeconds;this.events.push({type:'overfeedEnd',food:FOODS.find(f=>f.id===id)});}if(!entry.active&&this.time>=entry.graceUntil)delete this.overfeeding[id];}this.m=metrics(this.records,this.water,this.time,this.overfeeding);return this.m;}
+ syncMetrics(){let m=metrics(this.records,this.water,this.time,this.overfeeding,this.totals[5]>=C.snackFree);for(const [id,entry] of Object.entries(this.overfeeding)){if(entry.active&&(m.foodCounts[id]||0)<=C.overfeed.releaseCount){entry.active=false;entry.graceUntil=this.time+C.overfeed.graceSeconds;this.events.push({type:'overfeedEnd',food:FOODS.find(f=>f.id===id)});}if(!entry.active&&this.time>=entry.graceUntil)delete this.overfeeding[id];}this.m=metrics(this.records,this.water,this.time,this.overfeeding,this.totals[5]>=C.snackFree);return this.m;}
  take(food){
-  if(this.finishSnapshot)return;const before=this.syncMetrics(),red=food.kind==='food'&&before.overfedFoods.includes(food.id),unsafe=red||food.kind==='spoiled'||food.kind==='snack',spaceMistake=unsafe&&(this.spaceActive||this.time<this.spaceRecoveryUntil);let eventFood=food;
+  if(this.finishSnapshot)return;const before=this.syncMetrics(),red=food.kind==='food'&&before.overfedFoods.includes(food.id),excessSnack=food.kind==='snack'&&before.snackFull,unsafe=red||food.kind==='spoiled'||excessSnack,spaceMistake=unsafe&&(this.spaceActive||this.time<this.spaceRecoveryUntil);let eventFood=food;
   if(this.totals[food.group]>=0)this.totals[food.group]++;
   if(food.kind==='water')this.water=clamp(this.water+C.waterRecovery,0,100);
-  else if(food.kind==='spoiled'||red){if(red){this.overfedHits++;eventFood={...food,kind:'overfed'};}else this.spoiledHits++;this.spoiledUntil=this.time+C.spoiledDuration;this.syncMetrics();if(!spaceMistake){this.speed=desiredSpeed(this.m,true);this.displayedSpeedKmh=displayedSpeed(this.speed);}this.topSpeedHeldSec=0;}
-  else {this.records.push({kind:food.kind,group:food.group,foodId:food.id,time:this.time});const after=metrics(this.records,this.water,this.time,this.overfeeding);if(food.kind==='food'&&(after.foodCounts[food.id]||0)>=C.overfeed.threshold&&!this.overfeeding[food.id]?.active){this.overfeeding[food.id]={active:true,protectedNutrition:clamp(nutritionMultiplier(before)*C.overfeed.retention,C.minMultiplier,C.maxMultiplier),graceUntil:0};this.events.push({type:'overfeedStart',food});}}
+  else if(food.kind==='spoiled'||red||excessSnack){if(excessSnack){this.snackHits++;this.records.push({kind:'snackPenalty',group:food.group,foodId:food.id,time:this.time});eventFood={...food,kind:'excessSnack'};}else if(red){this.overfedHits++;eventFood={...food,kind:'overfed'};}else this.spoiledHits++;this.spoiledUntil=this.time+C.spoiledDuration;this.syncMetrics();if(!spaceMistake){this.speed=desiredSpeed(this.m,true);this.displayedSpeedKmh=displayedSpeed(this.speed);}this.topSpeedHeldSec=0;}
+  else {this.records.push({kind:food.kind,group:food.group,foodId:food.id,time:this.time});const after=metrics(this.records,this.water,this.time,this.overfeeding,this.totals[5]>=C.snackFree);if(food.kind==='food'&&(after.foodCounts[food.id]||0)>=C.overfeed.threshold&&!this.overfeeding[food.id]?.active){this.overfeeding[food.id]={active:true,protectedNutrition:clamp(nutritionMultiplier(before)*C.overfeed.retention,C.minMultiplier,C.maxMultiplier),graceUntil:0};this.events.push({type:'overfeedStart',food});}}
   this.syncMetrics();
   if(spaceMistake){this.spaceActive=false;this.spaceElapsed=0;this.topSpeedHeldSec=0;this.spaceRecoveryUntil=this.time+C.space.recoverySeconds;this.spoiledUntil=this.spaceRecoveryUntil;this.speed=internalSpeed(C.space.mistakeSpeed);this.displayedSpeedKmh=C.space.mistakeSpeed;this.events.push({type:'spaceBreak'});}
   this.events.push({type:'take',food:eventFood,y:this.y+C.bike.pickup.dy});
  }
- foodFor(group,preferSafe=false){let list=FOODS.filter(f=>f.group===group);if(preferSafe){const safe=list.filter(f=>!this.m.overfedFoods.includes(f.id));if(safe.length)list=safe;else list=FOODS.filter(f=>f.kind==='food'&&!this.m.overfedFoods.includes(f.id));}return list[Math.floor(this.random()*list.length)];} placeItem(food,x,wantedY){
+ foodFor(group,preferSafe=false){let list=FOODS.filter(f=>f.group===group);if(preferSafe){const safe=list.filter(f=>!this.m.overfedFoods.includes(f.id));if(safe.length)list=safe;else list=FOODS.filter(f=>f.kind==='food'&&!this.m.overfedFoods.includes(f.id));}return list.length?list[Math.floor(this.random()*list.length)]:FOODS.find(f=>f.kind==='water');} placeItem(food,x,wantedY){
   const min=C.bike.minY+C.bike.groundDY+10,max=C.bike.maxY+C.bike.groundDY-12;
   for(let attempt=0;attempt<30;attempt++){
    let free=[[min,max]];
@@ -98,5 +98,5 @@ export class Game{
   if(this.distance>=C.finishDistance-1e-8&&this.time<=C.timeLimit+1e-8)this.finish(true);
   else if(this.time>=C.timeLimit-1e-8)this.finish(false);
  }
- finish(success){if(this.finishSnapshot)return;const finishSpeedKmh=this.displayedSpeedKmh;this.finishSnapshot=Object.freeze({success,time:this.time,distance:Math.min(this.distance,C.finishDistance),finishSpeedKmh,totals:[...this.totals],spoiledHits:this.spoiledHits,overfedHits:this.overfedHits,averageBalance:this.balanceIntegral/Math.max(this.time,.001),averageImbalance:this.imbalanceIntegral/Math.max(this.time,.001),averageDry:this.dryIntegral/Math.max(this.time,.001),averageSnack:this.snackIntegral/Math.max(this.time,.001),hasHighSpeedEnding:success&&finishSpeedKmh>=C.endingThreshold});this.speed=0;this.displayedSpeedKmh=0;this.fast=false;this.topSpeedHeldSec=0;this.spaceActive=false;this.spaceElapsed=0;this.spaceRecoveryUntil=0;}
+ finish(success){if(this.finishSnapshot)return;const finishSpeedKmh=this.displayedSpeedKmh;this.finishSnapshot=Object.freeze({success,time:this.time,distance:Math.min(this.distance,C.finishDistance),finishSpeedKmh,totals:[...this.totals],spoiledHits:this.spoiledHits,overfedHits:this.overfedHits,snackHits:this.snackHits,averageBalance:this.balanceIntegral/Math.max(this.time,.001),averageImbalance:this.imbalanceIntegral/Math.max(this.time,.001),averageDry:this.dryIntegral/Math.max(this.time,.001),averageSnack:this.snackIntegral/Math.max(this.time,.001),hasHighSpeedEnding:success&&finishSpeedKmh>=C.endingThreshold});this.speed=0;this.displayedSpeedKmh=0;this.fast=false;this.topSpeedHeldSec=0;this.spaceActive=false;this.spaceElapsed=0;this.spaceRecoveryUntil=0;}
 }
