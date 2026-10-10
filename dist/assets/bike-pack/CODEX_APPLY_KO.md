@@ -30,3 +30,7 @@ bike.draw(ctx, playerGroupX, playerGroupY, playerScale);
 ```
 
 재시작에는 `bike.reset()`을 호출하고 일시정지 중에는 update의 dt와 이동량을 0으로 넘깁니다. 실제 골인 엔딩은 자세 플래그 대신 저장한 골인 속도로 판정합니다.
+
+
+## 2026-10-10 배포 이미지 경량화
+이 패키지의 세 PNG는 같은 해상도·픽셀·알파를 유지하는 무손실 WebP로 교체했습니다. 실제 파일 경로는 manifest.json/manifest.js에 반영했습니다. 아래 원본 설명의 PNG 경로는 동일 이름의 .webp로 읽으면 됩니다. sourceRect, axle, pivot 등 좌표는 변경하지 않았습니다. 원본 PNG는 별도 이미지 압축 전 백업 ZIP에 보관했습니다.

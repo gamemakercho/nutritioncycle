@@ -47,7 +47,7 @@ GitHub Desktop: 해당 저장소 → Changes 확인 → Summary 입력 → Commi
 | dist/app.js | 입력·일시정지·결과·엔딩 |
 | dist/assets/sprites/ | 160×160 셀의 4열×2행 투명 atlas와 manifest |
 | dist/assets/icons/*.svg | 실제 사용되는 20종 음식 그림 |
-| dist/assets/endings/ | 내용 변경 없는 첨부 원본 두 장 |
+| dist/assets/endings/ | 첨부 그림을 768×1152 WebP로 최적화한 엔딩 두 장 |
 | tools/build-icons.py | SVG 음식 재생성 |
 | tools/build-assets.py | 저장된 생성 시트에서 탑승자 atlas 재구성 |
 
@@ -73,9 +73,9 @@ GitHub Desktop: 해당 저장소 → Changes 확인 → Summary 입력 → Commi
 
 ## 새 스프라이트 패키지 적용
 
-food_bicycle_sprite_pack.zip의 README_KO.md, CODEX_APPLY_KO.md, manifest.json, renderer.js, preview.html을 확인한 뒤 연결했습니다. dist/assets/bike-pack에 원본 패키지를 보관했습니다. 제공된 PNG 세 장은 바이트 변경 없이 사용합니다.
+food_bicycle_sprite_pack.zip의 README_KO.md, CODEX_APPLY_KO.md, manifest.json, renderer.js, preview.html을 확인한 뒤 연결했습니다. dist/assets/bike-pack에 원본 패키지를 보관했습니다. 제공된 자전거 PNG 세 장은 해상도·픽셀·알파가 동일한 무손실 WebP로 배포합니다. 원본 PNG는 별도 백업 ZIP에 보관했습니다.
 
-활성 에셋은 rider_frame_sheet.png(사람+프레임), rear_food_wheel.png, front_water_wheel.png입니다. 기존 사람 단독 시트와 코드 프레임은 더 이상 그리지 않습니다. 이전 dist/assets/sprites 폴더와 생성 도구는 보관용이며 현재 주행에 사용하지 않습니다.
+활성 에셋은 rider_frame_sheet.webp(사람+프레임), rear_food_wheel.webp, front_water_wheel.webp입니다. 기존 사람 단독 시트와 코드 프레임은 더 이상 그리지 않습니다. 이전 dist/assets/sprites 폴더와 생성 도구는 보관용이며 현재 주행에 사용하지 않습니다.
 
 dist/bike-manifest.js는 원본 JSON에서 만든 런타임 좌표 데이터, dist/bike-renderer.js는 제공된 renderer.js의 두 연결점 균일 확대/회전/이동 보정을 그대로 사용하는 게임용 어댑터입니다. 모든 셀의 실제 sourceRect를 읽습니다. 일반 셀 높이 423, 고속 셀 높이 464, 셀 폭 443 또는 444이며 512 셀 가정이 없습니다.
 
@@ -83,7 +83,7 @@ dist/bike-manifest.js는 원본 JSON에서 만든 런타임 좌표 데이터, di
 
 전체 그룹 배율은 0.45이며 기본 바퀴 외곽 폭은 가로 논리 화면의 약 18.7%입니다. 얼굴·몸·프레임을 따로 늘리거나 전체 블러를 적용하지 않습니다. 70km/h에서 고속 자세, 65km/h 이하에서 일반 자세로 돌아오고 중간 구간은 유지합니다. 일반 45km/h는 7.5fps, 고속 85km/h는 13.95fps, 100km/h는 15.9fps입니다. 자세 전환은 0.2초이고 경과 시간으로 계산합니다. 새 패키지에 포함된 잔상과 투명도를 유지합니다.
 
-manifest의 고정 허브를 기준으로 사람이 붙은 프레임 연결점을 보정합니다. 영양 불균형·간식 과다의 뒷바퀴는 PNG 텍스처의 각도별 변형으로 표현하며 아래쪽 접지점과 두 허브는 유지합니다. 채움 정도는 바퀴의 선명도에 반영합니다. 앞바퀴는 PNG의 타이어·스포크·허브와 게임 수분 높이를 합성합니다. 수분 부족 시 접지점과 허브를 유지하며 위·옆 부분이 주저앉습니다. 원본 PNG는 변경하지 않습니다.
+manifest의 고정 허브를 기준으로 사람이 붙은 프레임 연결점을 보정합니다. 영양 불균형·간식 과다의 뒷바퀴는 PNG 텍스처의 각도별 변형으로 표현하며 아래쪽 접지점과 두 허브는 유지합니다. 채움 정도는 바퀴의 선명도에 반영합니다. 앞바퀴는 PNG의 타이어·스포크·허브와 게임 수분 높이를 합성합니다. 수분 부족 시 접지점과 허브를 유지하며 위·옆 부분이 주저앉습니다. 자전거의 원본 픽셀과 투명도는 무손실 WebP에서도 유지됩니다.
 
 드래그 기준점과 음식 획득 위치는 그대로입니다. 자세·페달 단계와 잔상이 획득 위치를 바꾸지 않습니다. 일시정지 시 이동량과 dt는 0, 재시작 시 애니메이션도 초기화합니다. 골인 엔딩 판정은 finishSnapshot.finishSpeedKmh >= 70을 계속 사용합니다. 첫 엔딩 그림 2.3초와 두 번째 2.4초를 유지합니다.
 
@@ -109,3 +109,13 @@ manifest의 고정 허브를 기준으로 사람이 붙은 프레임 연결점�
 
 
 유지·당류의 상단 짧은 이름은 요청에 따라 당류이며, 전체 분류 이름은 유지·당류입니다. 사탕을 참기름 병 SVG로 교체했습니다. 필요한 정상 음식이 모두 과영양일 때는 안전한 물을 우선 제공해 생성 오류를 막습니다. 최고 속도 음식 접근이 빨라져 100km/h의 일반 생성 위치부터 판정까지 약 1.24초입니다.
+
+
+## 2026-10-10 이미지 경량화
+
+배경은 외부 비트맵 없이 Canvas 코드로 그립니다. 엔딩은 1024×1536 PNG에서 768×1152 WebP(품질 85)로 줄였고, 자전거 세 장은 원래 해상도와 좌표를 유지하는 무손실 WebP로 변환했습니다.
+
+- 엔딩 합계: 7,014,090 → 636,678바이트.
+- 자전거 세 장: 3,265,443 → 2,293,078바이트.
+- 단일 배포 HTML: 13,797,815 → 3,998,118바이트(약 71.0% 감소).
+- WebP 경로는 config/manifest와 빌드 코드, 로컬 서버 MIME에 반영했습니다. 화면에서 그림을 차지하는 비율과 엔딩 표시 시간은 그대로입니다.

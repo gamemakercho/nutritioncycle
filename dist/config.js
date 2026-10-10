@@ -14,7 +14,7 @@ export const CONFIG={
   itemSize:66,itemLabelSize:17,foodOutline:6,itemStagger:18,itemSeparation:128,itemGapX:210,itemGapY:128,
   bike:{x:280,minY:245,maxY:535,startY:415,groundDY:118,pickup:{x:354,dy:118,rx:38,ry:23},
     pack:{base:'assets/bike-pack',scale:.45,deformSegments:64,foodAngles:[-.98,.45,1.31,-2.16,2.87,2.01]},
-    sprite:{path:'assets/bike-pack/assets/rider_frame_sheet.png',manifest:'assets/bike-pack/manifest.json'}},
+    sprite:{path:'assets/bike-pack/assets/rider_frame_sheet.webp',manifest:'assets/bike-pack/manifest.json'}},
   speedometer:{x:1174,y:105,r:87},
-  endings:[{path:'assets/endings/ending-01.png',duration:2.3},{path:'assets/endings/ending-02.png',duration:2.4}],endingTransition:.18,finishAnimation:1.05,finishExitDuration:.9,finishExitDistance:1500
+  endings:[{path:'assets/endings/ending-01.webp',duration:2.3},{path:'assets/endings/ending-02.webp',duration:2.4}],endingTransition:.18,finishAnimation:1.05,finishExitDuration:.9,finishExitDistance:1500
 };

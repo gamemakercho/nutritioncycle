@@ -1,15 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {CONFIG} from './dist/config.js';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const dist=path.join(root,'dist');
-const data=file=>'data:'+(file.endsWith('.svg')?'image/svg+xml':'image/png')+';base64,'+fs.readFileSync(path.join(dist,file)).toString('base64');
+const mimeTypes={'.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp'};
+const data=file=>{const mime=mimeTypes[path.extname(file)];if(!mime)throw new Error('Unsupported asset: '+file);return 'data:'+mime+';base64,'+fs.readFileSync(path.join(dist,file)).toString('base64');};
 const icons=Object.fromEntries(fs.readdirSync(path.join(dist,'assets/icons')).filter(f=>f.endsWith('.svg')).map(f=>[f.slice(0,-4),data('assets/icons/'+f)]));
 let js=['config.js','bike-manifest.js','foods.js','model.js','bike-renderer.js','geometry.js','view.js','render.js','app.js'].map(file=>{
  let code=fs.readFileSync(path.join(dist,file),'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');
  if(file==='config.js')code+='\nconst C=CONFIG;';
  if(file==='bike-manifest.js'){const pack=JSON.parse(fs.readFileSync(path.join(dist,'assets/bike-pack/manifest.json'),'utf8'));code+=`\nObject.assign(BIKE_MANIFEST.assets,${JSON.stringify(Object.fromEntries(Object.entries(pack.assets).map(([name,file])=>[name,data('assets/bike-pack/'+file)])))});`;}
- if(file==='foods.js')code+=`\nconst ICON_URLS=${JSON.stringify(icons)};FOODS.forEach(f=>f.image=ICON_URLS[f.id]);C.endings[0].path=${JSON.stringify(data('assets/endings/ending-01.png'))};C.endings[1].path=${JSON.stringify(data('assets/endings/ending-02.png'))};`;
+ if(file==='foods.js')code+=`\nconst ICON_URLS=${JSON.stringify(icons)};FOODS.forEach(f=>f.image=ICON_URLS[f.id]);${CONFIG.endings.map((e,i)=>`C.endings[${i}].path=${JSON.stringify(data(e.path))};`).join('')}`;
  if(file==='app.js')code=code.replace('src="assets/icons/${id}.svg"','src="${ICON_URLS[id]}"');
  return code;
 }).join('\n');

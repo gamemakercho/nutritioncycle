@@ -1,9 +1,9 @@
 export const BIKE_MANIFEST = {
   "version": 2,
   "assets": {
-    "riderFrame": "assets/rider_frame_sheet.png",
-    "rearWheel": "assets/rear_food_wheel.png",
-    "frontWheel": "assets/front_water_wheel.png"
+    "riderFrame": "assets/rider_frame_sheet.webp",
+    "rearWheel": "assets/rear_food_wheel.webp",
+    "frontWheel": "assets/front_water_wheel.webp"
   },
   "sheetSize": [
     1774,
